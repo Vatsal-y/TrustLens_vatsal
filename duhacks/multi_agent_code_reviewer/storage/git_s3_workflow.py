@@ -190,31 +190,36 @@ class GitS3Workflow:
         self.logger.info("☁️ Stage 3: Uploading to S3...")
         
         try:
-            # Upload directory
-            s3_path = self.s3_uploader.upload_directory(local_repo_path, analysis_id)
+            # Extract project name from repo_url or use default
+            project_name = repo_url.rstrip('/').split('/')[-1].replace('.git', '')
+            
+            # Upload directory using new structured format
+            s3_path = self.s3_uploader.upload_project_structure(local_repo_path, project_name, analysis_id)
             
             # Create and upload metadata
             metadata_obj = {
                 "analysis_id": analysis_id,
+                "project_name": project_name,
                 "repo_url": repo_url,
                 "branch": branch,
                 "uploaded_at": datetime.now().isoformat(),
                 "repo_info": repo_info,
-                "snippet_count": len(snippets),
+                "snippet_count": sum(len(s) for s in snippets.values()) if isinstance(snippets, dict) else 0,
                 "custom_metadata": metadata or {}
             }
             
-            # Upload metadata.json to S3
+            # Upload metadata.json to project root
             self.s3_uploader.upload_json(
                 metadata_obj,
-                f"{analysis_id}/metadata.json"
+                f"{project_name}/metadata.json"
             )
             
-            # Upload snippets if available
+            # Upload categorized snippets if available
             if snippets:
-                self.s3_uploader.upload_json(
+                self.s3_uploader.upload_categorized_snippets(
                     snippets,
-                    f"{analysis_id}/snippets.json"
+                    project_name,
+                    analysis_id
                 )
             
             file_count = self.s3_uploader.count_files_in_directory(local_repo_path)

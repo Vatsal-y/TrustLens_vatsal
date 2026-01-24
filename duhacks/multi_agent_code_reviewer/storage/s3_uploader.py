@@ -161,6 +161,103 @@ class S3Uploader:
             raise RuntimeError(f"Failed to upload to S3: {e}")
         
         return s3_path
+
+    def upload_project_structure(self, local_dir: str, project_name: str, analysis_id: str) -> str:
+        """
+        Upload project with structured hierarchy:
+        project_name/
+           ├── source_code/
+           ├── analysis_id/
+           └── snippets/
+               ├── security/
+               ├── logic/
+               └── quality/
+
+        Args:
+            local_dir: Local repository path
+            project_name: Name of the project
+            analysis_id: Unique analysis ID
+
+        Returns:
+            Base S3 path for the project
+        """
+        # Upload source code to a shared source folder
+        s3_source_prefix = f"{project_name}/source_code/"
+        source_path = f"s3://{self.bucket_name}/{s3_source_prefix}"
+        
+        self.logger.info(f"Uploading source code to structured path: {source_path}")
+        
+        # We reuse the logic but point to the new prefix
+        # This iterates and uploads files to project_name/source_code/...
+        self._upload_folder_contents(local_dir, s3_source_prefix)
+        
+        return f"s3://{self.bucket_name}/{project_name}/"
+
+    def _upload_folder_contents(self, local_dir: str, s3_prefix: str):
+        """Helper to upload folder contents to a specific S3 prefix"""
+        if self.use_mock:
+            return
+
+        for root, dirs, files in os.walk(local_dir):
+            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['node_modules', '__pycache__', 'venv', '.git']]
+            
+            for file in files:
+                if file.startswith('.') or file.endswith(('.pyc', '.pyo')):
+                    continue
+                
+                local_path = os.path.join(root, file)
+                relative_path = os.path.relpath(local_path, local_dir)
+                s3_key = f"{s3_prefix}{relative_path.replace(os.sep, '/')}"
+                
+                try:
+                    self.s3_client.upload_file(
+                        local_path, 
+                        self.bucket_name, 
+                        s3_key,
+                        ExtraArgs={'ContentType': self._get_content_type(file)}
+                    )
+                except Exception as e:
+                    self.logger.error(f"Failed to upload {file}: {e}")
+
+    def upload_categorized_snippets(self, snippets: Dict[str, Any], project_name: str, analysis_id: str):
+        """
+        Upload snippets into categorized folders.
+        
+        Structure:
+        project_name/snippets/security/snippet_1.json
+        project_name/snippets/logic/snippet_2.json
+        ...
+        
+        Args:
+            snippets: Dictionary of snippet lists {'security': [...], 'logic': [...]}
+            project_name: Project name
+            analysis_id: Analysis ID (for metadata linking)
+        """
+        import json
+        
+        base_prefix = f"{project_name}/snippets/"
+        
+        for category, snippet_list in snippets.items():
+            # e.g. project_name/snippets/security/
+            category_prefix = f"{base_prefix}{category}/"
+            
+            for idx, snippet in enumerate(snippet_list):
+                # Ensure snippet is a dict
+                if hasattr(snippet, 'to_dict'):
+                    data = snippet.to_dict()
+                else:
+                    data = snippet
+                
+                # Add metadata
+                data['analysis_id'] = analysis_id
+                
+                # Create a meaningful filename or use ID
+                file_name = f"{category}_snippet_{idx+1}.json"
+                s3_key = f"{category_prefix}{file_name}"
+                
+                self.upload_json(data, s3_key)
+                
+        self.logger.info(f"✅ Uploaded categorized snippets to {base_prefix}")
     
     def upload_file(self, local_file: str, s3_key: str) -> str:
         """
