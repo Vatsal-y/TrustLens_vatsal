@@ -436,6 +436,108 @@ def delete_analysis(analysis_id):
         }), 500
 
 
+@api_blueprint.route('/repos/submit-git', methods=['POST'])
+def submit_git_repository():
+    """
+    POST /api/repos/submit-git
+    
+    Submit a Git repository for cloning and S3 upload.
+    Complete workflow endpoint that handles the entire process.
+    
+    Request Body:
+    {
+        "repo_url": "https://github.com/user/repo.git",
+        "branch": "main",
+        "shallow_clone": false,
+        "metadata": {
+            "project_description": "...",
+            "custom_field": "value"
+        }
+    }
+    
+    Response:
+    {
+        "analysis_id": "analysis-xyz",
+        "status": "COMPLETED",
+        "s3_path": "s3://bucket/analysis-xyz/",
+        "repo_url": "https://github.com/user/repo",
+        "branch": "main",
+        "statistics": {
+            "files_uploaded": 150,
+            "commits": 245,
+            "snippets_extracted": 45
+        },
+        "workflow_status": "COMPLETED"
+    }
+    """
+    try:
+        data = request.get_json()
+        
+        if not data or not data.get('repo_url'):
+            return jsonify({
+                "error": "Missing required fields",
+                "message": "repo_url is required"
+            }), 400
+        
+        repo_url = data['repo_url']
+        branch = data.get('branch', 'main')
+        metadata = data.get('metadata', {})
+        
+        # Clone using complete Git-S3 workflow
+        result = controller.clone_from_github(
+            repo_url=repo_url,
+            branch=branch,
+            metadata=metadata
+        )
+        
+        return jsonify(result), 201
+    
+    except Exception as e:
+        logger.error(f"Error in Git submit endpoint: {e}")
+        return jsonify({
+            "error": "Repository submission failed",
+            "message": str(e)
+        }), 500
+
+
+@api_blueprint.route('/repos/<analysis_id>/workflow-status', methods=['GET'])
+def get_workflow_status(analysis_id):
+    """
+    GET /api/repos/{analysis_id}/workflow-status
+    
+    Get the Git-S3 workflow execution status.
+    
+    Response:
+    {
+        "analysis_id": "analysis-xyz",
+        "status": "COMPLETED",
+        "started_at": "2024-01-24T10:30:00",
+        "completed_at": "2024-01-24T10:35:00",
+        "stages": ["clone", "extraction", "upload", "cleanup"],
+        "error": null
+    }
+    """
+    try:
+        from storage.git_s3_workflow import git_s3_workflow
+        
+        status = git_s3_workflow.get_workflow_status(analysis_id)
+        
+        if status["status"] == "NOT_FOUND":
+            return jsonify({
+                "error": "Workflow not found",
+                "message": f"No workflow found for analysis_id: {analysis_id}"
+            }), 404
+        
+        return jsonify(status), 200
+    
+    except Exception as e:
+        logger.error(f"Error fetching workflow status: {e}")
+        return jsonify({
+            "error": "Failed to fetch workflow status",
+            "message": str(e)
+        }), 500
+
+
 # ==================== ERROR HANDLERS ====================
 
 @api_blueprint.errorhandler(404)

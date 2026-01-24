@@ -3,9 +3,24 @@ Run Flask API Server
 Entry point for the REST API backend
 """
 
+from pathlib import Path
+from dotenv import load_dotenv
 from api.app import create_app
 from utils.logger import Logger
 import os
+
+# Load .env file - search up the directory tree
+def load_env_file():
+    """Find and load .env file from current or parent directories"""
+    current = Path(__file__).parent
+    for _ in range(5):
+        env_file = current / ".env"
+        if env_file.exists():
+            load_dotenv(env_file)
+            return
+        current = current.parent
+
+load_env_file()
 
 if __name__ == '__main__':
     logger = Logger("Server")

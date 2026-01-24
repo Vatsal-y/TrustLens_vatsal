@@ -5,7 +5,23 @@ Centralized AWS configuration and credentials management
 
 import os
 from typing import Dict, Any, Optional
+from pathlib import Path
+from dotenv import load_dotenv
 from utils.logger import Logger
+
+# Load .env file from project root - search up the directory tree
+def load_env_file():
+    """Find and load .env file from current or parent directories"""
+    current = Path(__file__).parent
+    # Search up to 5 levels up
+    for _ in range(5):
+        env_file = current / ".env"
+        if env_file.exists():
+            load_dotenv(env_file)
+            return
+        current = current.parent
+
+load_env_file()
 
 
 class AWSConfig:

@@ -5,8 +5,23 @@ Main entry point for the system.
 
 import json
 import sys
+from pathlib import Path
+from dotenv import load_dotenv
 from orchestrator.orchestrator import Orchestrator
 from utils.logger import Logger
+
+# Load .env file - search up the directory tree
+def load_env_file():
+    """Find and load .env file from current or parent directories"""
+    current = Path(__file__).parent
+    for _ in range(5):
+        env_file = current / ".env"
+        if env_file.exists():
+            load_dotenv(env_file)
+            return
+        current = current.parent
+
+load_env_file()
 
 
 def main():

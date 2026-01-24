@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 from orchestrator.orchestrator import Orchestrator
 from storage.s3_uploader import S3Uploader
+from storage.git_s3_workflow import git_s3_workflow
 from utils.logger import Logger
 
 
@@ -102,53 +103,75 @@ class CodeReviewController:
             self.logger.error(f"Upload failed: {e}")
             raise
     
-    def clone_from_github(self, repo_url: str, branch: str = "main") -> Dict[str, Any]:
+    def clone_from_github(self, repo_url: str, branch: str = "main", metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
-        Clone GitHub repository and store in S3.
+        Clone GitHub repository, upload to S3, and store metadata.
+        Uses complete Git-S3 workflow.
         
         Args:
             repo_url: GitHub repository URL
-            branch: Branch name
+            branch: Branch name (default: main)
+            metadata: Optional custom metadata to store
         
         Returns:
-            Clone result with analysis_id
+            Clone result with analysis_id, S3 path, and workflow info
         """
         analysis_id = f"analysis-{str(uuid.uuid4())[:8]}"
         
         try:
-            # Clone repo (placeholder - implement with GitPython in production)
-            # import git
-            # temp_dir = tempfile.mkdtemp()
-            # git.Repo.clone_from(repo_url, temp_dir, branch=branch)
+            self.logger.info(f"🔄 Starting Git clone workflow: {repo_url}")
             
-            # For skeleton: mock S3 path
-            s3_path = f"s3://code-review-bucket/{analysis_id}/"
+            # Use Git-S3 workflow for complete processing
+            workflow_result = git_s3_workflow.process_git_repository(
+                repo_url=repo_url,
+                analysis_id=analysis_id,
+                branch=branch,
+                shallow=False,
+                extract_snippets=True,
+                metadata=metadata or {}
+            )
             
-            # Store metadata
+            # Check if workflow succeeded
+            if workflow_result["status"] != "COMPLETED":
+                raise Exception(f"Workflow failed: {workflow_result.get('error', 'Unknown error')}")
+            
+            s3_path = workflow_result["s3_path"]
+            
+            # Extract repo name
+            repo_name = repo_url.rstrip('/').split('/')[-1].replace('.git', '')
+            
+            # Store analysis metadata for tracking
             self.analyses[analysis_id] = {
                 "analysis_id": analysis_id,
-                "project_name": repo_url.split('/')[-1],
+                "project_name": repo_name,
                 "s3_path": s3_path,
                 "repository_url": repo_url,
                 "branch": branch,
                 "status": "UPLOADED",
                 "progress": 0,
                 "created_at": datetime.now().isoformat(),
-                "source": "github"
+                "source": "github",
+                "workflow_info": {
+                    "completed_at": workflow_result.get("completed_at"),
+                    "statistics": workflow_result.get("statistics", {})
+                }
             }
             
-            self.logger.info(f"Cloned repository: {analysis_id}")
+            self.logger.info(f"✅ Successfully cloned and uploaded: {analysis_id}")
             
             return {
                 "analysis_id": analysis_id,
                 "s3_path": s3_path,
                 "status": "UPLOADED",
                 "repo_url": repo_url,
-                "message": "Repository cloned successfully"
+                "branch": branch,
+                "message": f"Repository cloned and uploaded successfully",
+                "statistics": workflow_result.get("statistics", {}),
+                "workflow_status": workflow_result["status"]
             }
         
         except Exception as e:
-            self.logger.error(f"Clone failed: {e}")
+            self.logger.error(f"❌ Clone workflow failed: {e}")
             raise
     
     # ==================== ANALYSIS EXECUTION ====================

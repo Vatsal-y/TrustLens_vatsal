@@ -312,3 +312,37 @@ class S3Uploader:
         }
         
         return content_types.get(ext, 'application/octet-stream')
+    
+    def upload_json(self, data: dict, s3_key: str) -> str:
+        """
+        Upload JSON object to S3.
+        
+        Args:
+            data: Dictionary to upload as JSON
+            s3_key: S3 object key
+        
+        Returns:
+            S3 URI
+        """
+        import json
+        json_content = json.dumps(data, indent=2)
+        return self.upload_string(json_content, s3_key, content_type='application/json')
+    
+    def count_files_in_directory(self, directory: str) -> int:
+        """
+        Count total files in a directory.
+        
+        Args:
+            directory: Directory path
+        
+        Returns:
+            Total file count
+        """
+        total_files = 0
+        try:
+            for _, _, files in os.walk(directory):
+                total_files += len(files)
+        except Exception as e:
+            self.logger.warning(f"Could not count files: {e}")
+        
+        return total_files
