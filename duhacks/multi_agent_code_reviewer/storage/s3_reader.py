@@ -4,8 +4,9 @@ Utility to read code snapshots from Amazon S3.
 """
 
 import boto3
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from botocore.exceptions import ClientError, NoCredentialsError
+from schemas.code_snippet import CodeSnippet
 from storage.aws_config import aws_config
 from utils.logger import Logger
 
@@ -252,6 +253,46 @@ class S3Reader:
         except Exception as e:
             self.logger.error(f"Error getting agent inputs: {e}")
             return {}
+
+    def get_code_snippets(self, s3_base_path: str, category: str) -> List[CodeSnippet]:
+        """
+        Retrieve CodeSnippet objects for a specific category.
+        
+        Args:
+            s3_base_path: root path of project (e.g. s3://bucket/project/)
+            category: 'security', 'logic'
+            
+        Returns:
+            List of CodeSnippet objects
+        """
+        from schemas.code_snippet import CodeSnippet
+        import json
+        
+        bucket, prefix = self._parse_s3_path(s3_base_path)
+        snippet_prefix = f"{prefix}snippets/{category}/"
+        
+        files = self._read_from_s3(bucket, snippet_prefix)
+        
+        snippets = []
+        for content in files.values():
+            try:
+                data = json.loads(content)
+                # Handle cases where data might be a dict version of CodeSnippet
+                snippet = CodeSnippet(
+                    filename=data.get('filename', 'unknown'),
+                    start_line=data.get('start_line', 1),
+                    end_line=data.get('end_line', 1),
+                    content=data.get('content', ''),
+                    context=data.get('context', 'unknown'),
+                    relevance_score=data.get('relevance_score', 0.5),
+                    tags=data.get('tags', [])
+                )
+                snippets.append(snippet)
+            except Exception as e:
+                self.logger.warning(f"Failed to parse snippet JSON: {e}")
+                continue
+                
+        return snippets
 
     def get_snippets(self, s3_base_path: str, category: str) -> str:
         """

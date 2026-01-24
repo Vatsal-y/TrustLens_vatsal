@@ -49,9 +49,9 @@ class SecurityAnalysisAgent(BaseAgent):
         """
         try:
             # Validate inputs (PRD AC-2: Bounded context enforcement)
-            if len(snippets) > 3:
-                self.logger.warning(f"⚠️ Received {len(snippets)} snippets, expected max 3")
-                snippets = snippets[:3]
+            if len(snippets) > 5:
+                self.logger.warning(f"⚠️ Received {len(snippets)} snippets, expected max 5")
+                snippets = snippets[:5]
             
             for snippet in snippets:
                 if snippet.get_size() > 500:

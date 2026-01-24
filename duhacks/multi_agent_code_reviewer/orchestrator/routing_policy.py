@@ -34,14 +34,16 @@ class RoutingPolicy:
         self.config = config or {}
         self.logger = Logger("RoutingPolicy")
         
-        # Constraints from PRD
-        self.max_snippets_per_agent = self.config.get("max_snippets_per_agent", 3)
+        # Constraints from PRD (updated per user request)
+        self.max_snippets_per_agent = self.config.get("max_snippets_per_agent", 5)
         self.max_snippet_chars = self.config.get("max_snippet_chars", 500)
     
     def route_for_security_agent(
         self, 
         code_files: Dict[str, str], 
-        features: Dict[str, Any]
+        features: Dict[str, Any],
+        s3_reader: Any = None,
+        s3_path: str = None
     ) -> Tuple[Dict[str, Any], List[CodeSnippet]]:
         """
         Curate inputs for Security Agent.
@@ -49,41 +51,45 @@ class RoutingPolicy:
         Args:
             code_files: All code files from S3
             features: Structured features from FeatureExtractionAgent
+            s3_reader: Optional S3Reader to fetch pre-extracted snippets
+            s3_path: Optional S3 path to find snippets folder
         
         Returns:
             Tuple of (curated_features, snippets)
-            - Max 3 snippets
+            - Max 5 snippets
             - Max 500 chars per snippet
-            - Snippets must include source → sink patterns
-        
-        Logging:
-            Logs WHY each snippet was selected for explainability (AC-3)
         """
         self.logger.info("🔒 Routing for Security Agent")
         
         # Curate security-specific features
         curated_features = self._curate_security_features(features)
         
-        # Extract security-relevant snippets
-        snippets = self._extract_security_snippets(code_files, features)
+        # Try fetching from S3 first if reader is provided
+        snippets = []
+        if s3_reader and s3_path:
+            self.logger.info("  Fetching pre-extracted snippets from S3...")
+            snippets = s3_reader.get_code_snippets(s3_path, "security")
+        
+        # If no snippets found in S3, fallback to scan
+        if not snippets:
+            self.logger.info("  No snippets in S3 or no reader, scanning code files...")
+            snippets = self._extract_security_snippets(code_files, features)
         
         # Enforce constraints
         snippets = snippets[:self.max_snippets_per_agent]
+        for s in snippets:
+            if len(s.content) > self.max_snippet_chars:
+                s.content = s.content[:self.max_snippet_chars]
         
         self.logger.info(f"✅ Selected {len(snippets)} security snippets")
-        for i, snippet in enumerate(snippets, 1):
-            self.logger.info(
-                f"  Snippet {i}: {snippet.get_location()} "
-                f"(tags: {', '.join(snippet.tags)}, "
-                f"relevance: {snippet.relevance_score:.2f})"
-            )
-        
         return curated_features, snippets
     
     def route_for_logic_agent(
         self, 
         code_files: Dict[str, str], 
-        features: Dict[str, Any]
+        features: Dict[str, Any],
+        s3_reader: Any = None,
+        s3_path: str = None
     ) -> Tuple[Dict[str, Any], List[CodeSnippet]]:
         """
         Curate inputs for Logic Agent.
@@ -91,35 +97,36 @@ class RoutingPolicy:
         Args:
             code_files: All code files from S3
             features: Structured features from FeatureExtractionAgent
+            s3_reader: Optional S3Reader to fetch pre-extracted snippets
+            s3_path: Optional S3 path to find snippets folder
         
         Returns:
             Tuple of (curated_features, snippets)
-            - Max 3 snippets
-            - Only logic-heavy code (loops, conditionals, nesting)
-            - MUST NOT include security-focused code
-        
-        Logging:
-            Logs selection criteria for explainability (AC-3)
+            - Max 5 snippets
         """
         self.logger.info("🧠 Routing for Logic Agent")
         
         # Curate logic-specific features
         curated_features = self._curate_logic_features(features)
         
-        # Extract logic-relevant snippets
-        snippets = self._extract_logic_snippets(code_files, features)
+        # Try fetching from S3 first
+        snippets = []
+        if s3_reader and s3_path:
+            self.logger.info("  Fetching pre-extracted snippets from S3...")
+            snippets = s3_reader.get_code_snippets(s3_path, "logic")
+            
+        # Fallback to scan
+        if not snippets:
+            self.logger.info("  No snippets in S3 or no reader, scanning code files...")
+            snippets = self._extract_logic_snippets(code_files, features)
         
         # Enforce constraints
         snippets = snippets[:self.max_snippets_per_agent]
-        
+        for s in snippets:
+            if len(s.content) > self.max_snippet_chars:
+                s.content = s.content[:self.max_snippet_chars]
+                
         self.logger.info(f"✅ Selected {len(snippets)} logic snippets")
-        for i, snippet in enumerate(snippets, 1):
-            self.logger.info(
-                f"  Snippet {i}: {snippet.get_location()} "
-                f"(context: {snippet.context}, "
-                f"nesting: {self._extract_nesting_from_tags(snippet.tags)})"
-            )
-        
         return curated_features, snippets
     
     def route_for_quality_agent(
@@ -342,7 +349,7 @@ class RoutingPolicy:
                         end_line=end_line,
                         content=snippet_content,
                         context=context,
-                        relevance_score=pattern_info['priority'] + (nesting * 0.1),
+                        relevance_score=min(1.0, pattern_info['priority'] + (nesting * 0.1)),
                         tags=pattern_info['tags'] + [f'nesting_{nesting}']
                     )
                     

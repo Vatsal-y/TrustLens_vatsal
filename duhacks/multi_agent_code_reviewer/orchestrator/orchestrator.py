@@ -81,7 +81,7 @@ class Orchestrator:
         self.logger.info("✅ Feature extraction complete")
         
         # Step 3: Run analysis agents with curated inputs
-        agent_outputs = self._run_analysis_agents(code_files, features)
+        agent_outputs = self._run_analysis_agents(code_files, features, s3_path)
         all_outputs = [feature_output] + agent_outputs
         
         # Step 4: Detect conflicts
@@ -118,7 +118,7 @@ class Orchestrator:
         
         return report
     
-    def _run_analysis_agents(self, code_files: Dict[str, str], features: Dict[str, Any]) -> List[AgentOutput]:
+    def _run_analysis_agents(self, code_files: Dict[str, str], features: Dict[str, Any], s3_path: str = None) -> List[AgentOutput]:
         """
         Run all analysis agents with curated inputs.
         
@@ -133,7 +133,7 @@ class Orchestrator:
         try:
             self.logger.info("🔒 Running Security Agent...")
             security_features, security_snippets = self.routing_policy.route_for_security_agent(
-                code_files, features
+                code_files, features, s3_reader=self.s3_reader, s3_path=s3_path
             )
             outputs.append(self.security_agent.analyze(security_features, security_snippets))
             self.logger.info("✅ Security analysis complete")
@@ -144,7 +144,7 @@ class Orchestrator:
         try:
             self.logger.info("🧠 Running Logic Agent...")
             logic_features, logic_snippets = self.routing_policy.route_for_logic_agent(
-                code_files, features
+                code_files, features, s3_reader=self.s3_reader, s3_path=s3_path
             )
             outputs.append(self.logic_agent.analyze(logic_features, logic_snippets))
             self.logger.info("✅ Logic analysis complete")

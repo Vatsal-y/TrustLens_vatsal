@@ -1,0 +1,313 @@
+{
+  "repository_url": "https://github.com/kavyacp123/trend-pulse-spark.git",
+  "s3_snapshot_path": "s3://duhacks-s3-aicode/trend-pulse-spark/",
+  "timestamp": "2026-01-24T22:53:55.260351",
+  "overall_confidence": 0.8666666666666667,
+  "overall_risk_level": "critical",
+  "agent_outputs": [
+    {
+      "agent_type": "feature_extraction",
+      "confidence": 1.0,
+      "findings": [],
+      "risk_level": "none",
+      "metadata": {
+        "features": {
+          "total_loc": 23230,
+          "languages": [
+            "css",
+            "ico",
+            "lockb",
+            "png",
+            "ts",
+            "txt",
+            "tsx",
+            "yml",
+            "xml",
+            "unknown",
+            "json",
+            "java",
+            "sql",
+            "html",
+            "svg",
+            "md",
+            "conf",
+            "js"
+          ],
+          "file_extensions": {
+            "json": 119,
+            "md": 9,
+            "xml": 1,
+            "java": 86,
+            "yml": 4,
+            "sql": 4,
+            "lockb": 1,
+            "js": 2,
+            "html": 1,
+            "ico": 1,
+            "svg": 1,
+            "txt": 1,
+            "css": 2,
+            "tsx": 60,
+            "ts": 7,
+            "unknown": 1,
+            "conf": 1,
+            "png": 1
+          },
+          "average_file_size": 3619.9834437086092,
+          "complexity_indicators": {
+            "nested_depth": 11,
+            "function_count": 37,
+            "class_count": 77
+          }
+        },
+        "file_count": 302
+      },
+      "success": true,
+      "error_message": null
+    },
+    {
+      "agent_type": "security_analysis",
+      "confidence": 0.85,
+      "findings": [
+        {
+          "type": "sql_injection",
+          "severity": "critical",
+          "description": "Potential SQL injection in user authentication",
+          "line": "query = f\"SELECT * FROM users WHERE username='{username}'...\""
+        },
+        {
+          "type": "input_validation",
+          "severity": "high",
+          "description": "Missing input validation on user_id parameter",
+          "line": "return database.query(user_id)"
+        },
+        {
+          "type": "sql_injection",
+          "severity": "critical",
+          "description": "Potential SQL injection in user authentication",
+          "line": "query = f\"SELECT * FROM users WHERE username='{username}'...\""
+        },
+        {
+          "type": "input_validation",
+          "severity": "high",
+          "description": "Missing input validation on user_id parameter",
+          "line": "return database.query(user_id)"
+        },
+        {
+          "type": "sql_injection",
+          "severity": "critical",
+          "description": "Potential SQL injection in user authentication",
+          "line": "query = f\"SELECT * FROM users WHERE username='{username}'...\""
+        },
+        {
+          "type": "input_validation",
+          "severity": "high",
+          "description": "Missing input validation on user_id parameter",
+          "line": "return database.query(user_id)"
+        },
+        {
+          "type": "sql_injection",
+          "severity": "critical",
+          "description": "Potential SQL injection in user authentication",
+          "line": "query = f\"SELECT * FROM users WHERE username='{username}'...\""
+        },
+        {
+          "type": "input_validation",
+          "severity": "high",
+          "description": "Missing input validation on user_id parameter",
+          "line": "return database.query(user_id)"
+        },
+        {
+          "type": "sql_injection",
+          "severity": "critical",
+          "description": "Potential SQL injection in user authentication",
+          "line": "query = f\"SELECT * FROM users WHERE username='{username}'...\""
+        },
+        {
+          "type": "input_validation",
+          "severity": "high",
+          "description": "Missing input validation on user_id parameter",
+          "line": "return database.query(user_id)"
+        }
+      ],
+      "risk_level": "critical",
+      "metadata": {
+        "snippets_analyzed": 5,
+        "features_used": [
+          "signals",
+          "risk_indicators",
+          "total_loc"
+        ]
+      },
+      "success": true,
+      "error_message": null
+    },
+    {
+      "agent_type": "logic_analysis",
+      "confidence": 0.85,
+      "findings": [
+        {
+          "type": "sql_injection",
+          "severity": "critical",
+          "description": "Potential SQL injection in user authentication",
+          "line": "query = f\"SELECT * FROM users WHERE username='{username}'...\""
+        },
+        {
+          "type": "input_validation",
+          "severity": "high",
+          "description": "Missing input validation on user_id parameter",
+          "line": "return database.query(user_id)"
+        },
+        {
+          "type": "sql_injection",
+          "severity": "critical",
+          "description": "Potential SQL injection in user authentication",
+          "line": "query = f\"SELECT * FROM users WHERE username='{username}'...\""
+        },
+        {
+          "type": "input_validation",
+          "severity": "high",
+          "description": "Missing input validation on user_id parameter",
+          "line": "return database.query(user_id)"
+        },
+        {
+          "type": "sql_injection",
+          "severity": "critical",
+          "description": "Potential SQL injection in user authentication",
+          "line": "query = f\"SELECT * FROM users WHERE username='{username}'...\""
+        },
+        {
+          "type": "input_validation",
+          "severity": "high",
+          "description": "Missing input validation on user_id parameter",
+          "line": "return database.query(user_id)"
+        },
+        {
+          "type": "sql_injection",
+          "severity": "critical",
+          "description": "Potential SQL injection in user authentication",
+          "line": "query = f\"SELECT * FROM users WHERE username='{username}'...\""
+        },
+        {
+          "type": "input_validation",
+          "severity": "high",
+          "description": "Missing input validation on user_id parameter",
+          "line": "return database.query(user_id)"
+        },
+        {
+          "type": "sql_injection",
+          "severity": "critical",
+          "description": "Potential SQL injection in user authentication",
+          "line": "query = f\"SELECT * FROM users WHERE username='{username}'...\""
+        },
+        {
+          "type": "input_validation",
+          "severity": "high",
+          "description": "Missing input validation on user_id parameter",
+          "line": "return database.query(user_id)"
+        }
+      ],
+      "risk_level": "low",
+      "metadata": {
+        "snippets_analyzed": 5,
+        "features_used": [
+          "structure",
+          "complexity_metrics",
+          "total_loc"
+        ]
+      },
+      "success": true,
+      "error_message": null
+    },
+    {
+      "agent_type": "code_quality",
+      "confidence": 0.9,
+      "findings": [
+        {
+          "type": "long_functions",
+          "severity": "info",
+          "description": "Average function length 627.8 exceeds threshold"
+        },
+        {
+          "type": "high_complexity",
+          "severity": "warning",
+          "description": "Max nesting depth 11 is high"
+        },
+        {
+          "type": "large_codebase",
+          "severity": "info",
+          "description": "Codebase has 23230 lines of code"
+        }
+      ],
+      "risk_level": "low",
+      "metadata": {
+        "quality_metrics": {
+          "avg_function_length": 627.8378378378378,
+          "max_nesting_depth": 11,
+          "total_loc": 23230,
+          "avg_file_size": 3619.9834437086092,
+          "function_count": 37,
+          "class_count": 77
+        },
+        "advisory": true,
+        "blocking": false
+      },
+      "success": true,
+      "error_message": null
+    },
+    {
+      "agent_type": "decision",
+      "confidence": 0.6666666666666667,
+      "findings": [
+        {
+          "recommendation": "defer",
+          "reasoning": "Unresolved conflicts detected between agents: 1 conflicts",
+          "defer_if_needed": true
+        }
+      ],
+      "risk_level": "critical",
+      "metadata": {
+        "recommendation": "defer",
+        "defer": true,
+        "conflicts_present": true
+      },
+      "success": true,
+      "error_message": null
+    }
+  ],
+  "conflicts": [
+    {
+      "agents_involved": [
+        "security_analysis",
+        "logic_analysis"
+      ],
+      "disagreement_level": 0.75,
+      "conflicting_findings": [
+        {
+          "agent": "security_analysis",
+          "risk_level": "critical",
+          "confidence": 0.85
+        },
+        {
+          "agent": "logic_analysis",
+          "risk_level": "low",
+          "confidence": 0.85
+        }
+      ]
+    }
+  ],
+  "recommendation": "defer",
+  "action_recommended": "defer",
+  "deferred": true,
+  "deferral_reason": "1 unresolved conflicts between agents",
+  "metadata": {
+    "system_health": {
+      "total_agents": 5,
+      "successful_agents": 5,
+      "failed_agents": 0,
+      "success_rate": 1.0,
+      "average_confidence": 0.8533333333333333,
+      "health_status": "healthy"
+    }
+  }
+}
