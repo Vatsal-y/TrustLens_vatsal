@@ -7,6 +7,9 @@ from snippet.detectors.language_detector import detect_language, Language
 
 # Parsers
 from snippet.parsers.python_parser import PythonParser
+from snippet.parsers.javascript_parser import JavascriptParser
+from snippet.parsers.typescript_parser import TypescriptParser
+from snippet.parsers.java_parser import JavaParser
 
 # IR
 from snippet.ir.code_block import CodeBlock
@@ -29,6 +32,10 @@ class SnippetExtractor:
         
         # Tools
         self.python_parser = PythonParser()
+        self.javascript_parser = JavascriptParser()
+        self.typescript_parser = TypescriptParser()
+        self.java_parser = JavaParser()
+        
         self.security_selector = SecuritySelector()
         self.logic_selector = LogicSelector()
         self.quality_selector = QualitySelector()
@@ -43,7 +50,7 @@ class SnippetExtractor:
         
         for root, _, files in os.walk(local_dir):
             for file in files:
-                if file.endswith('.py'):
+                if file.endswith(('.py', '.js', '.ts', '.java')):
                     path = os.path.join(root, file)
                     try:
                         with open(path, 'r', encoding='utf-8') as f:
@@ -72,15 +79,26 @@ class SnippetExtractor:
         for filename, content in code_files.items():
             lang = detect_language(filename)
             
-            # 1. Parse into IR
+            # 1. Parse into IR using correct parser
             blocks = []
-            if lang == Language.PYTHON:
-                blocks = self.python_parser.parse(content)
-            else:
-                self.logger.debug(f"Skipping non-python file: {filename}")
+            try:
+                if lang == Language.PYTHON:
+                    blocks = self.python_parser.parse(content)
+                elif lang == Language.JAVASCRIPT:
+                    blocks = self.javascript_parser.parse(content)
+                elif lang == Language.TYPESCRIPT:
+                    blocks = self.typescript_parser.parse(content)
+                elif lang == Language.JAVA:
+                    blocks = self.java_parser.parse(content)
+                else:
+                    self.logger.debug(f"Skipping unsupported file: {filename}")
+                    continue
+            except Exception as e:
+                self.logger.error(f"Failed to parse {filename}: {e}")
                 continue
                 
             if not blocks:
+                # If no blocks found, skip selector step
                 continue
 
             # 2. Select Blocks

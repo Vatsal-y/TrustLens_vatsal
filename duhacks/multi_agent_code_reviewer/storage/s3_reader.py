@@ -214,31 +214,88 @@ class S3Reader:
         
         return files
     
-    def check_path_exists(self, s3_path: str) -> bool:
+    def get_agent_inputs(self, analysis_id: str, agent_type: str = None) -> Dict[str, Any]:
         """
-        Check if S3 path exists.
+        Retrive extracted snippets for a specific agent.
         
         Args:
-            s3_path: S3 path to check
-        
+            analysis_id: Analysis identifier
+            agent_type: 'security', 'logic', or None for all
+            
         Returns:
-            True if path exists, False otherwise
+            Dictionary of formatted snippets ready for LLM prompt
         """
         if self.use_mock:
-            return True
-        
-        bucket, prefix = self._parse_s3_path(s3_path)
-        
+            return {"formatted_context": "MOCK CONTEXT FOR TESTING"}
+            
         try:
-            response = self.s3_client.list_objects_v2(
-                Bucket=bucket,
-                Prefix=prefix,
-                MaxKeys=1
-            )
-            return 'Contents' in response
+            # Determine prefixes based on agent type
+            prefixes = []
+            
+            # Assuming standard structure: project_name/snippets/category/
+            # We first need to find the project name or scan the analysis_id folder
+            # But earlier we stored as project_name/...
+            # Let's assume the analysis_id is sufficient if we stored it that way,
+            # OR we need to lookup project_name from metadata.
+            
+            # Strategy: List top-level folders and look for metadata.json containing this analysis_id?
+            # Better strategy: The caller usually knows the project_name or s3 path.
+            # If we only have analysis_id, we might need a lookup table.
+            
+            # For now, let's assume the s3_path passed to agents usually includes the project root.
+            # But this method only takes analysis_id.
+            # Let's try to find the path.
+            
+            # Look for extracting via s3_path from caller is better, but let's implement extraction from a known prefix.
+            pass 
+            
         except Exception as e:
-            self.logger.error(f"Error checking path: {e}")
-            return False
+            self.logger.error(f"Error getting agent inputs: {e}")
+            return {}
+
+    def get_snippets(self, s3_base_path: str, category: str) -> str:
+        """
+        Retrieve and format snippets for a specific category.
+        
+        Args:
+            s3_base_path: root path of project (e.g. s3://bucket/project/)
+            category: 'security', 'logic'
+            
+        Returns:
+            Formatted string for LLM context
+        """
+        bucket, prefix = self._parse_s3_path(s3_base_path)
+        snippet_prefix = f"{prefix}snippets/{category}/"
+        
+        files = self._read_from_s3(bucket, snippet_prefix)
+        
+        snippets = []
+        import json
+        
+        for content in files.values():
+            try:
+                data = json.loads(content)
+                snippets.append(data)
+            except:
+                continue
+                
+        return self._format_snippets(snippets)
+
+    def _format_snippets(self, snippets: list) -> str:
+        """Format snippets into LLM-readable context"""
+        output = []
+        
+        for s in snippets:
+            entry = f"FILE: {s.get('filename')} (Lines {s.get('start_line')}-{s.get('end_line')})\n"
+            entry += f"CONTEXT: {s.get('context')}\n"
+            entry += f"TAGS: {', '.join(s.get('tags', []))}\n"
+            entry += "CODE:\n"
+            entry += s.get('content', '') + "\n"
+            entry += "-" * 40
+            output.append(entry)
+            
+        return "\n".join(output)
+
     
     def _mock_read_snapshot(self, s3_path: str) -> Dict[str, str]:
         """

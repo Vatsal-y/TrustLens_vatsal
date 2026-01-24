@@ -234,6 +234,7 @@ class S3Uploader:
             analysis_id: Analysis ID (for metadata linking)
         """
         import json
+        from dataclasses import asdict, is_dataclass
         
         base_prefix = f"{project_name}/snippets/"
         
@@ -243,13 +244,16 @@ class S3Uploader:
             
             for idx, snippet in enumerate(snippet_list):
                 # Ensure snippet is a dict
-                if hasattr(snippet, 'to_dict'):
+                if is_dataclass(snippet):
+                    data = asdict(snippet)
+                elif hasattr(snippet, 'to_dict'):
                     data = snippet.to_dict()
                 else:
                     data = snippet
                 
                 # Add metadata
-                data['analysis_id'] = analysis_id
+                if isinstance(data, dict):
+                    data['analysis_id'] = analysis_id
                 
                 # Create a meaningful filename or use ID
                 file_name = f"{category}_snippet_{idx+1}.json"

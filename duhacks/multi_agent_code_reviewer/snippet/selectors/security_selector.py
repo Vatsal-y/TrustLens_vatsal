@@ -21,12 +21,17 @@ class SecuritySelector:
             meta = block.metadata
             
             # Rule 1: Dangerous execution
-            if meta.get("uses_eval") or meta.get("uses_exec"):
+            if meta.get("uses_eval") or meta.get("uses_exec") or meta.get("uses_dynamic_function") or meta.get("uses_reflection"):
                 selected.append(block)
                 continue
-                
-            # Rule 2: SQL Interaction
-            if meta.get("uses_sql_strings") and block.complexity > 1:
+
+            # Rule 2: SQL / JDBC Interaction
+            if (meta.get("uses_sql_strings") or meta.get("uses_jdbc")) and block.complexity > 1:
+                selected.append(block)
+                continue
+            
+            # Rule 3: Hardcoded Secrets
+            if meta.get("uses_hardcoded_secrets"):
                 selected.append(block)
                 continue
 
