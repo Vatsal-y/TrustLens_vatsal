@@ -1,7 +1,7 @@
 {
   "repository_url": "https://github.com/kavyacp123/trend-pulse-spark.git",
   "s3_snapshot_path": "s3://duhacks-s3-aicode/trend-pulse-spark/",
-  "timestamp": "2026-01-24T22:53:55.260351",
+  "timestamp": "2026-01-24T23:50:07.548188",
   "overall_confidence": 0.8666666666666667,
   "overall_risk_level": "critical",
   "agent_outputs": [
@@ -14,24 +14,24 @@
         "features": {
           "total_loc": 23230,
           "languages": [
-            "css",
             "ico",
-            "lockb",
-            "png",
-            "ts",
             "txt",
+            "sql",
             "tsx",
-            "yml",
-            "xml",
             "unknown",
+            "conf",
+            "html",
+            "css",
+            "md",
+            "xml",
             "json",
             "java",
-            "sql",
-            "html",
+            "js",
             "svg",
-            "md",
-            "conf",
-            "js"
+            "ts",
+            "png",
+            "lockb",
+            "yml"
           ],
           "file_extensions": {
             "json": 119,
@@ -257,19 +257,21 @@
     },
     {
       "agent_type": "decision",
-      "confidence": 0.6666666666666667,
+      "confidence": 0.7166666666666667,
       "findings": [
         {
-          "recommendation": "defer",
-          "reasoning": "Unresolved conflicts detected between agents: 1 conflicts",
-          "defer_if_needed": true
+          "recommendation": "manual_review_required",
+          "reasoning": "Highest detected risk: critical",
+          "max_risk": "critical"
         }
       ],
       "risk_level": "critical",
       "metadata": {
-        "recommendation": "defer",
-        "defer": true,
-        "conflicts_present": true
+        "analysis_confidence": 0.8666666666666667,
+        "decision_confidence": 0.7166666666666667,
+        "recommendation": "manual_review_required",
+        "confidence_reasoning": "1 conflict(s) reduced certainty.",
+        "conflicts_count": 1
       },
       "success": true,
       "error_message": null
@@ -296,17 +298,21 @@
       ]
     }
   ],
-  "recommendation": "defer",
+  "recommendation": "Analysis Deferred",
   "action_recommended": "defer",
   "deferred": true,
   "deferral_reason": "1 unresolved conflicts between agents",
   "metadata": {
+    "analysis_confidence": 0.8666666666666667,
+    "decision_confidence": 0.7166666666666667,
+    "failed_agents": [],
+    "conflicts_count": 1,
+    "confidence_reasoning": "1 conflict(s) reduced certainty.",
     "system_health": {
       "total_agents": 5,
       "successful_agents": 5,
       "failed_agents": 0,
-      "success_rate": 1.0,
-      "average_confidence": 0.8533333333333333,
+      "average_confidence": 0.8633333333333333,
       "health_status": "healthy"
     }
   }

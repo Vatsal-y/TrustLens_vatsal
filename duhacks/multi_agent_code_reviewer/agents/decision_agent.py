@@ -1,84 +1,83 @@
 """
 Decision Agent
-Recommends actions based on all agent outputs.
-NEVER makes final decisions - only recommendations.
+Recommends actions based on findings from expert agents.
+Interprets data but does not determine trust.
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 from .base_agent import BaseAgent
 from schemas.agent_output import AgentOutput, AgentType, RiskLevel
 
 
 class DecisionAgent(BaseAgent):
     """
-    Synthesizes all agent outputs and recommends action.
-    Does NOT make final decisions.
-    Does NOT execute any actions.
+    Synthesizes expert findings into a recommended action.
+    Strictly follows risk-priority hierarchy and safety penalties.
     """
     
     def __init__(self, config: Dict[str, Any] = None):
         super().__init__(AgentType.DECISION, config)
-        self.min_confidence_threshold = config.get("min_confidence", 0.7) if config else 0.7
     
     def _validate_config(self) -> None:
-        """Validate configuration"""
         pass
     
-    def analyze(self, s3_path: str, features: Dict[str, Any] = None) -> AgentOutput:
-        """
-        Not used for decision agent.
-        Decision agent uses recommend_action() instead.
-        """
-        raise NotImplementedError("DecisionAgent uses recommend_action(), not analyze()")
+    def analyze(self, **kwargs) -> AgentOutput:
+        """Required by BaseAgent interface but not used."""
+        raise NotImplementedError("Use recommend_action instead")
     
     def recommend_action(
         self,
-        all_outputs: List[AgentOutput],
+        agent_outputs: List[AgentOutput],
         overall_confidence: float,
-        conflicts: List[Dict[str, Any]]
+        conflicts: List[Any]
     ) -> AgentOutput:
         """
-        Recommend action based on all agent outputs.
-        
-        Args:
-            all_outputs: Outputs from all other agents
-            overall_confidence: Aggregated confidence
-            conflicts: Detected conflicts
-        
-        Returns:
-            AgentOutput with recommendation
+        Synthesize recommendation and calculate decision confidence.
         """
         try:
-            # Collect risk levels
-            risk_levels = [output.risk_level for output in all_outputs if output.success]
+            # Filter successful outputs
+            success_outputs = [o for o in agent_outputs if o.success]
             
-            # Determine recommendation
-            recommendation = self._determine_recommendation(
-                risk_levels,
+            # 1. Determine Highest Risk Level
+            max_risk = RiskLevel.NONE
+            if success_outputs:
+                max_risk = max(o.risk_level for o in success_outputs)
+            
+            # 2. Map Risk to Action
+            recommendation = self._map_risk_to_action(max_risk)
+            reasoning = f"Highest detected risk: {max_risk.value}"
+            
+            # 3. Critical Risk Safety Rule
+            # If CRITICAL risk exists and overall_confidence < 0.80, force DEFER
+            if max_risk == RiskLevel.CRITICAL and overall_confidence < 0.80:
+                recommendation = "defer"
+                reasoning = f"Critical risk detected but overall confidence ({overall_confidence:.2f}) is below 0.80 safety threshold."
+            
+            # 4. Calculate Decision Confidence (with conflict penalties)
+            decision_confidence = self._calculate_decision_confidence(overall_confidence, conflicts)
+            
+            # 5. Generate reasoning string
+            confidence_reasoning = self._generate_reasoning(
+                len(agent_outputs) - len(success_outputs), 
+                len(conflicts),
                 overall_confidence,
-                conflicts
+                decision_confidence
             )
-            
-            # Calculate decision confidence
-            decision_confidence = self._calculate_decision_confidence(
-                overall_confidence,
-                len(conflicts)
-            )
-            
-            findings = [{
-                "recommendation": recommendation["action"],
-                "reasoning": recommendation["reasoning"],
-                "defer_if_needed": recommendation["defer"]
-            }]
             
             return self._create_output(
                 confidence=decision_confidence,
-                findings=findings,
-                risk_level=max(risk_levels) if risk_levels else RiskLevel.NONE,
+                findings=[{
+                    "recommendation": recommendation,
+                    "reasoning": reasoning,
+                    "max_risk": max_risk.value
+                }],
+                risk_level=max_risk,
                 metadata={
-                    "recommendation": recommendation["action"],
-                    "defer": recommendation["defer"],
-                    "conflicts_present": len(conflicts) > 0
+                    "analysis_confidence": overall_confidence,
+                    "decision_confidence": decision_confidence,
+                    "recommendation": recommendation,
+                    "confidence_reasoning": confidence_reasoning,
+                    "conflicts_count": len(conflicts)
                 }
             )
         except Exception as e:
@@ -90,80 +89,46 @@ class DecisionAgent(BaseAgent):
                 success=False,
                 error_message=str(e)
             )
-    
-    def _determine_recommendation(
-        self,
-        risk_levels: List[RiskLevel],
-        confidence: float,
-        conflicts: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
-        """
-        Determine recommended action.
-        
-        Args:
-            risk_levels: All risk levels from agents
-            confidence: Overall confidence
-            conflicts: Conflicts detected
-        
-        Returns:
-            Recommendation dictionary
-        """
-        # DEFER if confidence is too low
-        if confidence < self.min_confidence_threshold:
-            return {
-                "action": "defer",
-                "reasoning": f"Confidence {confidence:.2f} below threshold {self.min_confidence_threshold}",
-                "defer": True
-            }
-        
-        # DEFER if there are unresolved conflicts
-        if conflicts:
-            return {
-                "action": "defer",
-                "reasoning": f"Unresolved conflicts detected between agents: {len(conflicts)} conflicts",
-                "defer": True
-            }
-        
-        # Check highest risk level
-        if RiskLevel.CRITICAL in risk_levels:
-            return {
-                "action": "manual_review_required",
-                "reasoning": "Critical security or logic issues detected",
-                "defer": False
-            }
-        
-        if RiskLevel.HIGH in risk_levels:
-            return {
-                "action": "review_required",
-                "reasoning": "High-severity issues found",
-                "defer": False
-            }
-        
-        if RiskLevel.MEDIUM in risk_levels:
-            return {
-                "action": "proceed_with_caution",
-                "reasoning": "Medium-severity issues detected, proceed with awareness",
-                "defer": False
-            }
-        
-        # Low or no risk
-        return {
-            "action": "acceptable",
-            "reasoning": "No significant issues detected",
-            "defer": False
+
+    def _map_risk_to_action(self, risk: RiskLevel) -> str:
+        """Map RiskLevel to Action Recommendation per PRD."""
+        mapping = {
+            RiskLevel.CRITICAL: "manual_review_required",
+            RiskLevel.HIGH: "review_required",
+            RiskLevel.MEDIUM: "proceed_with_caution",
+            RiskLevel.LOW: "acceptable",
+            RiskLevel.NONE: "acceptable"
         }
-    
-    def _calculate_decision_confidence(self, overall_confidence: float, conflict_count: int) -> float:
+        return mapping.get(risk, "unknown")
+
+    def _calculate_decision_confidence(self, overall_confidence: float, conflicts: List[Any]) -> float:
         """
-        Calculate confidence in the decision itself.
-        
-        Args:
-            overall_confidence: Aggregated confidence from agents
-            conflict_count: Number of conflicts
-        
-        Returns:
-            Decision confidence
+        Apply conflict penalties to overall confidence.
+        Penalty = 0.2 * disagreement_level per conflict, capped at 0.5.
         """
-        # Reduce confidence based on conflicts
-        penalty = min(0.2 * conflict_count, 0.5)
-        return max(overall_confidence - penalty, 0.0)
+        penalty = 0.0
+        for conflict in conflicts:
+            # Safely handle conflict objects (assuming they have disagreement_level)
+            disagreement = getattr(conflict, "disagreement_level", 1.0)
+            penalty += 0.2 * disagreement
+            
+        penalty = min(penalty, 0.5)
+        decision_confidence = max(0.0, overall_confidence - penalty)
+        
+        # Ensure it never exceeds overall_confidence
+        return min(decision_confidence, overall_confidence)
+
+    def _generate_reasoning(self, failed_count: int, conflict_count: int, analytic_conf: float, final_conf: float) -> str:
+        """Generate human-readable confidence reasoning."""
+        points = []
+        if failed_count > 0:
+            points.append(f"{failed_count} agent(s) failed")
+        if conflict_count > 0:
+            points.append(f"{conflict_count} conflict(s) reduced certainty")
+        if analytic_conf < 0.85:
+            points.append("moderate analytic confidence")
+        
+        if not points:
+            return "High trust integration with full agent consensus."
+            
+        return " ".join(points).capitalize() + "."

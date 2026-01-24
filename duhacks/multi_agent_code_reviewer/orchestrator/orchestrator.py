@@ -87,20 +87,31 @@ class Orchestrator:
         # Step 4: Detect conflicts
         conflicts = self.conflict_resolver.detect_conflicts(agent_outputs)
         
-        # Step 5: Aggregate confidence
+        # Step 5: Failure Tracking (Part 1.4)
+        failures = self.reliability_engine.get_failures(agent_outputs)
+        
+        # Step 6: Aggregate confidence (Weighted Mean - Part 1.3)
         overall_confidence = self.reliability_engine.aggregate_confidence(agent_outputs)
         
-        # Step 6: Check deferral
-        should_defer, defer_reason = self.reliability_engine.should_defer(overall_confidence, conflicts)
+        # Step 7: Check deferral (Safety Gate - Part 1.5)
+        should_defer, defer_reason = self.reliability_engine.should_defer(overall_confidence, conflicts, failures)
         
-        # Step 7: Get decision
+        # Step 8: Get decision recommendation (Part 2)
         decision_output = self.decision_agent.recommend_action(agent_outputs, overall_confidence, conflicts)
         all_outputs.append(decision_output)
         
-        # Step 8: Generate report
+        # Step 9: Generate report (Part 3)
         risk_levels = [o.risk_level for o in agent_outputs if o.success]
         overall_risk = max(risk_levels) if risk_levels else RiskLevel.NONE
         
+        # Decision recommendation might be overridden by deferral logic
+        final_recommendation = decision_output.metadata.get("recommendation", "unknown")
+        final_action = decision_output.metadata.get("recommendation")
+        
+        if should_defer:
+            final_recommendation = "Analysis Deferred"
+            final_action = "defer"
+
         report = FinalReport(
             repository_url=repo_url,
             s3_snapshot_path=s3_path,
@@ -109,11 +120,18 @@ class Orchestrator:
             overall_risk_level=overall_risk,
             agent_outputs=all_outputs,
             conflicts=conflicts,
-            recommendation=decision_output.metadata.get("recommendation", "unknown"),
-            action_recommended=decision_output.metadata.get("recommendation"),
+            recommendation=final_recommendation,
+            action_recommended=final_action,
             deferred=should_defer,
             deferral_reason=defer_reason if should_defer else None,
-            metadata={"system_health": self.reliability_engine.calculate_system_health(all_outputs)}
+            metadata={
+                "analysis_confidence": overall_confidence,
+                "decision_confidence": decision_output.metadata.get("decision_confidence", 0.0),
+                "failed_agents": failures.get("failed_agents", []),
+                "conflicts_count": len(conflicts),
+                "confidence_reasoning": decision_output.metadata.get("confidence_reasoning", ""),
+                "system_health": self.reliability_engine.calculate_system_health(all_outputs)
+            }
         )
         
         return report

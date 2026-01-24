@@ -1,24 +1,35 @@
 """
 Reliability Engine
 Tracks agent reliability, confidence aggregation, and failure handling.
+Ensures the system never makes an unsafe or blind decision.
 """
 
-from typing import List, Dict, Any
-from schemas.agent_output import AgentOutput
+from typing import List, Dict, Any, Tuple, Optional
+from schemas.agent_output import AgentOutput, AgentType
 import statistics
 
 
 class ReliabilityEngine:
     """
     Manages reliability tracking and confidence aggregation.
+    Determines if the system is allowed to make a decision.
     """
     
     def __init__(self):
-        self.agent_history: Dict[str, List[float]] = {}
+        # Static reliability scores per PRD
+        self.agent_reliability: Dict[str, float] = {
+            AgentType.SECURITY_ANALYSIS.value: 1.0,
+            AgentType.LOGIC_ANALYSIS.value: 1.0,
+            AgentType.CODE_QUALITY.value: 1.0,
+            AgentType.FEATURE_EXTRACTION.value: 1.0
+        }
+        # Agents considered critical for any code review
+        self.critical_agents = {AgentType.SECURITY_ANALYSIS}
     
     def aggregate_confidence(self, outputs: List[AgentOutput]) -> float:
         """
-        Aggregate confidence from multiple agent outputs.
+        Aggregate confidence using Reliability-Weighted Mean.
+        ONLY includes successful agents.
         
         Args:
             outputs: List of agent outputs
@@ -26,113 +37,84 @@ class ReliabilityEngine:
         Returns:
             Aggregated confidence score (0.0-1.0)
         """
-        if not outputs:
-            return 0.0
-        
         successful_outputs = [o for o in outputs if o.success]
         
         if not successful_outputs:
             return 0.0
         
-        confidences = [o.confidence for o in successful_outputs]
+        sum_weighted_confidence = 0.0
+        sum_reliability = 0.0
         
-        # Use weighted mean based on agent reliability
-        weighted_confidences = []
         for output in successful_outputs:
-            agent_name = output.agent_type.value
-            reliability = self._get_agent_reliability(agent_name)
-            weighted_confidences.append(output.confidence * reliability)
-        
-        if weighted_confidences:
-            return sum(weighted_confidences) / len(weighted_confidences)
-        else:
-            return statistics.mean(confidences)
+            agent_type = output.agent_type.value
+            reliability = self.agent_reliability.get(agent_type, 1.0)
+            
+            sum_weighted_confidence += output.confidence * reliability
+            sum_reliability += reliability
+            
+        if sum_reliability == 0:
+            return 0.0
+            
+        return sum_weighted_confidence / sum_reliability
     
-    def _get_agent_reliability(self, agent_name: str) -> float:
+    def get_failures(self, outputs: List[AgentOutput]) -> Dict[str, List[str]]:
         """
-        Get historical reliability of an agent.
-        
-        Args:
-            agent_name: Name of agent
-        
-        Returns:
-            Reliability score (0.0-1.0)
+        Track failed and missing critical agents.
         """
-        if agent_name not in self.agent_history:
-            return 1.0  # Default reliability for new agents
+        failed_agents = [o.agent_type.value for o in outputs if not o.success]
         
-        history = self.agent_history[agent_name]
-        if not history:
-            return 1.0
+        # Identify critical agents that didn't run or didn't succeed
+        successful_types = {o.agent_type for o in outputs if o.success}
+        missing_critical = [
+            agent.value for agent in self.critical_agents 
+            if agent not in successful_types
+        ]
         
-        # Calculate reliability from historical performance
-        return statistics.mean(history)
-    
-    def record_agent_performance(self, agent_name: str, confidence: float):
-        """
-        Record agent performance for future reliability calculations.
-        
-        Args:
-            agent_name: Name of agent
-            confidence: Confidence achieved
-        """
-        if agent_name not in self.agent_history:
-            self.agent_history[agent_name] = []
-        
-        self.agent_history[agent_name].append(confidence)
-        
-        # Keep only recent history (last 100 runs)
-        if len(self.agent_history[agent_name]) > 100:
-            self.agent_history[agent_name] = self.agent_history[agent_name][-100:]
-    
+        return {
+            "failed_agents": failed_agents,
+            "missing_critical_agents": missing_critical
+        }
+
     def should_defer(
         self,
         overall_confidence: float,
-        conflicts: List[Dict[str, Any]],
+        conflicts: List[Any],
+        failures: Dict[str, List[str]],
         min_confidence_threshold: float = 0.7
-    ) -> tuple[bool, str]:
+    ) -> Tuple[bool, str]:
         """
-        Determine if system should defer decision.
-        
-        Args:
-            overall_confidence: Aggregated confidence
-            conflicts: Detected conflicts
-            min_confidence_threshold: Minimum acceptable confidence
-        
-        Returns:
-            Tuple of (should_defer, reason)
+        Safety Gate: Decide if system must defer to human.
+        Enforces ordered safety rules.
         """
-        # Defer if confidence is too low
+        # 1. If no successful agents -> DEFER
+        if overall_confidence <= 0.0:
+            return True, "No successful agent outputs received"
+        
+        # 2. If overall_confidence < 0.70 -> DEFER
         if overall_confidence < min_confidence_threshold:
             return True, f"Overall confidence {overall_confidence:.2f} below threshold {min_confidence_threshold}"
         
-        # Defer if there are unresolved conflicts
+        # 3. If unresolved conflicts exist -> DEFER
         if conflicts:
             return True, f"{len(conflicts)} unresolved conflicts between agents"
         
+        # 4. If critical agent failed (e.g., Security) -> DEFER
+        if failures.get("missing_critical_agents"):
+            agents = ", ".join(failures["missing_critical_agents"])
+            return True, f"Missing critical agent analysis: {agents}"
+        
         return False, ""
-    
+
     def calculate_system_health(self, outputs: List[AgentOutput]) -> Dict[str, Any]:
-        """
-        Calculate overall system health metrics.
-        
-        Args:
-            outputs: All agent outputs
-        
-        Returns:
-            Health metrics
-        """
+        """Calculate system health for metadata."""
         total = len(outputs)
         successful = len([o for o in outputs if o.success])
-        failed = total - successful
-        
-        avg_confidence = self.aggregate_confidence(outputs)
+        avg_conf = self.aggregate_confidence(outputs)
         
         return {
             "total_agents": total,
             "successful_agents": successful,
-            "failed_agents": failed,
-            "success_rate": successful / total if total > 0 else 0.0,
-            "average_confidence": avg_confidence,
-            "health_status": "healthy" if successful == total and avg_confidence > 0.7 else "degraded"
+            "failed_agents": total - successful,
+            "average_confidence": avg_conf,
+            "health_status": "healthy" if successful == total and avg_conf >= 0.7 else "degraded"
         }
