@@ -33,7 +33,8 @@ const DECISION_CONFIG = {
 const FinalDecisionPanel = ({ decision }) => {
     if (!decision) return null;
 
-    const config = DECISION_CONFIG[decision] || DECISION_CONFIG.MANUAL_REVIEW;
+    // Direct mapping, no default fallback to MANUAL_REVIEW unless explicitly detected
+    const config = DECISION_CONFIG[decision] || DECISION_CONFIG.SAFE;
     const Icon = config.icon;
 
     return (
@@ -71,12 +72,6 @@ const FinalDecisionPanel = ({ decision }) => {
                     >
                         View Full Audit Report <ArrowRight className="w-4 h-4" />
                     </Link>
-
-                    {decision === 'MANUAL_REVIEW' && (
-                        <button className="px-6 py-3 rounded-lg bg-surface border border-border text-sm font-medium text-primary hover:bg-secondary transition-colors">
-                            Start Human Review
-                        </button>
-                    )}
                 </div>
             </div>
         </motion.div>
