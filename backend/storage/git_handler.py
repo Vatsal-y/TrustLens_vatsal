@@ -28,12 +28,19 @@ class GitHandler:
     def __init__(self, base_temp_dir: Optional[str] = None):
         """
         Initialize Git handler.
-        
-        Args:
-            base_temp_dir: Base directory for temporary clones (uses system temp if None)
         """
         self.logger = Logger("GitHandler")
-        self.base_temp_dir = base_temp_dir or tempfile.gettempdir()
+        # Use a consistent writable path on Render/Linux
+        self.base_temp_dir = base_temp_dir or '/tmp/trustlens_repos'
+        
+        # Ensure directory exists
+        try:
+            os.makedirs(self.base_temp_dir, exist_ok=True)
+            self.logger.info(f"📂 Git workspace ready at: {self.base_temp_dir}")
+        except Exception as e:
+            self.logger.warning(f"⚠️ Could not create custom temp dir: {e}. Falling back to system default.")
+            self.base_temp_dir = tempfile.gettempdir()
+
         self.cloned_repos = {}  # Track cloned repositories
         
         if not GIT_AVAILABLE:

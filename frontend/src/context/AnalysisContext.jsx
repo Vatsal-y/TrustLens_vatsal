@@ -100,29 +100,49 @@ export const AnalysisProvider = ({ children }) => {
             setStatus('ANALYZING');
             simulateProgress();
 
-            let currentAnalysisId = null;
+            // VISUAL DEBUG LOG
+            const debugInfo = `API Call to: ${APP_CONFIG.API_BASE_URL}`;
+            console.log("DEBUG:", debugInfo);
+            setLogs(prev => [...prev, {
+                id: Date.now() - 1,
+                timestamp: new Date().toLocaleTimeString(),
+                message: `📡 Connecting to Backend: ${APP_CONFIG.API_BASE_URL}`,
+                type: 'info'
+            }]);
 
             // 1. Ingestion
             if (input.startsWith('http')) {
+                console.log("DEBUG: Cloning GitHub Repo:", input);
+                setLogs(prev => [...prev, {
+                    id: Date.now() + 1,
+                    timestamp: new Date().toLocaleTimeString(),
+                    message: `🔄 Cloning GitHub repository...`,
+                    type: 'info'
+                }]);
+
                 const response = await fetch(`${APP_CONFIG.API_BASE_URL}/repos/from-github`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ repo_url: input, branch: 'main' })
                 });
                 const data = await response.json();
+                console.log("DEBUG: GitHub Clone Response:", data);
+
                 if (!response.ok) throw new Error(data.message || 'GitHub clone failed');
                 currentAnalysisId = data.analysis_id;
             } else {
-                // If not a URL, treat as direct code snippet
+                console.log("DEBUG: Processing Code Snippet");
                 const response = await fetch(`${APP_CONFIG.API_BASE_URL}/repos/snippet`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         code: input,
-                        language: 'python' // In production, added language detection or a dropdown
+                        language: 'python'
                     })
                 });
                 const data = await response.json();
+                console.log("DEBUG: Snippet Upload Response:", data);
+
                 if (!response.ok) throw new Error(data.message || 'Snippet upload failed');
                 currentAnalysisId = data.analysis_id;
             }
@@ -151,9 +171,15 @@ export const AnalysisProvider = ({ children }) => {
             startPolling(currentAnalysisId);
 
         } catch (err) {
-            console.error("Analysis Error:", err);
+            console.error("DEBUG: Analysis Error:", err);
             setError(err.message);
             setStatus('FAILED');
+            setLogs(prev => [...prev, {
+                id: Date.now(),
+                timestamp: new Date().toLocaleTimeString(),
+                message: `❌ Error: ${err.message}`,
+                type: 'error'
+            }]);
             if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
         }
     };

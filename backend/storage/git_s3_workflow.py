@@ -67,7 +67,7 @@ class GitS3Workflow:
             
             if not clone_result["success"]:
                 workflow_result["status"] = "FAILED"
-                workflow_result["error"] = "Clone stage failed"
+                workflow_result["error"] = clone_result.get("error", "Clone stage failed")
                 return workflow_result
             
             local_repo_path = clone_result["local_path"]
