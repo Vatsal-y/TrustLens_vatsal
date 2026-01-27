@@ -1,5 +1,5 @@
 
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:10000";
 const CLEAN_BASE_URL = BASE_URL.replace(/\/$/, "");
 const API_URL = CLEAN_BASE_URL.endsWith("/api") ? CLEAN_BASE_URL : `${CLEAN_BASE_URL}/api`;
 
