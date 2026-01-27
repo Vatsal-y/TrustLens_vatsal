@@ -163,11 +163,13 @@ class GitHandler:
         
         try:
             # Handle Authentication (Use GITHUB_TOKEN if available)
-            token = os.environ.get('GITHUB_TOKEN')
+            raw_token = os.environ.get('GITHUB_TOKEN')
+            token = raw_token.strip() if raw_token else None
+            
             if token and 'github.com' in repo_url:
                 # Inject token: https://<token>@github.com/user/repo.git
                 auth_url = repo_url.replace('https://', f'https://{token}@')
-                self.logger.info(f"🔑 Using GITHUB_TOKEN for authentication")
+                self.logger.info(f"🔑 Using GITHUB_TOKEN for authentication (Length: {len(token)})")
             else:
                 auth_url = repo_url
 
@@ -205,14 +207,18 @@ class GitHandler:
             }
         
         except git.exc.GitCommandError as e:
-            error_msg = str(e)
-            self.logger.error(f"❌ Git clone failed: {error_msg}")
+            # Capture detailed error output
+            stderr = getattr(e, 'stderr', '')
+            stdout = getattr(e, 'stdout', '')
+            error_msg = f"Git Command failed: {stderr if stderr else str(e)}"
+            
+            self.logger.error(f"❌ Git clone failed")
+            if stderr: self.logger.error(f"STDEER: {stderr}")
             
             # Mask token in error message if present
             if token:
                 error_msg = error_msg.replace(token, "********")
-                
-            self._cleanup_dir(clone_dir)
+                stderr = stderr.replace(token, "********")
             
             # Accurate Diagnosis
             if "authentication" in error_msg.lower() or "401" in error_msg or "403" in error_msg:
