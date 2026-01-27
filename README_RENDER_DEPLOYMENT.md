@@ -128,16 +128,16 @@ VITE_API_URL = https://trustlens-backend-[random].onrender.com
 
 ---
 
-## ⚠️ Critical: Pre-Deployment Command
+## ✅ Docker Deployment (Git Fixed Automatically)
 
-**WITHOUT THIS, GIT CLONING WILL FAIL!**
+Since we switched the `render.yaml` to use **Docker**, Git is installed automatically inside the container.
 
-Add to Backend → Advanced → Pre-deployment command:
-```bash
-apt-get update && apt-get install -y git
-```
+You do **NOT** need to add any "Pre-deployment command" anymore. The `Dockerfile` handles everything:
+1. Installs Git
+2. Installs Python dependencies
+3. Runs the app
 
-This ensures Git is installed before your code runs.
+Just deploy and it will work! 🚀
 
 ---
 
