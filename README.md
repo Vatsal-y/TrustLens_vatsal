@@ -5,6 +5,8 @@ TrustLens is a next-generation code analysis platform that moves beyond traditio
 
 By treating code review as a multi-perspective problem, TrustLens provides explainable, high-confidence audits that identify subtle vulnerabilities and logical contradictions that standard static analysis tools and generic LLMs often miss.
 
+Live Demo : https://trustlens-frontend-1.onrender.com/
+
 ---
 
 ## 🏛️ System Design & Architecture
@@ -21,7 +23,7 @@ graph TD
 
     subgraph "Orchestration Layer (The Brain)"
         S3 --> |Read Snapshot| ORC[System Orchestrator]
-        ORC --> |Step 1: Scan| FEA[Feature Agent]
+        ORC --> |Step 1: Scan| FEA[Feature extraction]
         FEA --> |Project DNA| RP[Routing Policy]
         ORC --> |Step 2: Curate| RP
     end
