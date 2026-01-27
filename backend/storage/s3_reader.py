@@ -254,6 +254,31 @@ class S3Reader:
             self.logger.error(f"Error getting agent inputs: {e}")
             return {}
 
+    def get_metadata(self, s3_base_path: str) -> Dict[str, Any]:
+        """
+        Retrieve metadata for a project from S3.
+        
+        Args:
+            s3_base_path: root path of project (e.g. s3://bucket/project/)
+        
+        Returns:
+            Metadata dictionary
+        """
+        import json
+        
+        bucket, prefix = self._parse_s3_path(s3_base_path)
+        metadata_key = f"{prefix}metadata.json".lstrip('/')
+        
+        try:
+            response = self.s3_client.get_object(Bucket=bucket, Key=metadata_key)
+            content = response['Body'].read().decode('utf-8')
+            metadata = json.loads(content)
+            self.logger.info(f"✅ Retrieved metadata for {s3_base_path}")
+            return metadata
+        except Exception as e:
+            self.logger.warning(f"⚠️ Could not retrieve metadata: {e}")
+            return {}
+
     def get_code_snippets(self, s3_base_path: str, category: str) -> List[CodeSnippet]:
         """
         Retrieve CodeSnippet objects for a specific category.

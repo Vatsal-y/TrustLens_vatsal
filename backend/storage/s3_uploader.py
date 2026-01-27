@@ -93,131 +93,90 @@ class S3Uploader:
     
     def upload_directory(self, local_dir: str, analysis_id: str) -> str:
         """
-        Upload directory to S3.
+        DEPRECATED: Use upload_only_snippets instead.
+        This method is kept for backward compatibility but doesn't upload full code.
         
         Args:
-            local_dir: Local directory path
+            local_dir: Local directory path (not used)
             analysis_id: Analysis identifier for S3 path
         
         Returns:
-            S3 path where files were uploaded
+            S3 path message
         """
-        s3_prefix = f"{aws_config.s3_prefix}{analysis_id}/"
-        s3_path = f"s3://{self.bucket_name}/{s3_prefix}"
-        
-        if self.use_mock:
-            self.logger.warning(f"⚠️ MOCK mode - simulating upload to {s3_path}")
-            return s3_path
-        
-        try:
-            uploaded_count = 0
-            skipped_count = 0
-            
-            self.logger.info(f"Uploading directory '{local_dir}' to {s3_path}")
-            
-            # Walk through directory and upload each file
-            for root, dirs, files in os.walk(local_dir):
-                # Skip hidden directories and common non-code directories
-                dirs[:] = [d for d in dirs if not d.startswith('.') and d not in 
-                          ['node_modules', '__pycache__', 'venv', 'env', '.git']]
-                
-                for file in files:
-                    # Skip hidden files and non-code files
-                    if file.startswith('.') or file.endswith(('.pyc', '.pyo', '.so', '.dll')):
-                        skipped_count += 1
-                        continue
-                    
-                    local_file_path = os.path.join(root, file)
-                    relative_path = os.path.relpath(local_file_path, local_dir)
-                    s3_key = f"{s3_prefix}{relative_path.replace(os.sep, '/')}"
-                    
-                    # Check file size (skip files > 10MB)
-                    file_size = os.path.getsize(local_file_path)
-                    if file_size > 10 * 1024 * 1024:
-                        self.logger.warning(f"⚠️ Skipping large file: {relative_path} ({file_size} bytes)")
-                        skipped_count += 1
-                        continue
-                    
-                    # Upload file
-                    try:
-                        self.s3_client.upload_file(
-                            local_file_path,
-                            self.bucket_name,
-                            s3_key,
-                            ExtraArgs={'ContentType': self._get_content_type(file)}
-                        )
-                        uploaded_count += 1
-                        self.logger.debug(f"✅ Uploaded: {relative_path}")
-                    
-                    except Exception as e:
-                        self.logger.error(f"❌ Failed to upload {relative_path}: {e}")
-                        skipped_count += 1
-            
-            self.logger.info(f"✅ Upload complete: {uploaded_count} files uploaded, {skipped_count} skipped")
-            self.logger.info(f"S3 Path: {s3_path}")
-        
-        except Exception as e:
-            self.logger.error(f"❌ Upload failed: {e}")
-            raise RuntimeError(f"Failed to upload to S3: {e}")
-        
-        return s3_path
+        self.logger.warning("⚠️ upload_directory is deprecated. Use upload_only_snippets with extracted snippets instead.")
+        return f"s3://{self.bucket_name}/{aws_config.s3_prefix}{analysis_id}/"
 
-    def upload_project_structure(self, local_dir: str, project_name: str, analysis_id: str) -> str:
+    def upload_only_snippets(
+        self,
+        project_name: str,
+        analysis_id: str,
+        snippets: Dict[str, Any],
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> str:
         """
-        Upload project with structured hierarchy:
+        Upload ONLY extracted code snippets and metadata to S3.
+        Does NOT upload full source code.
+        
+        Structure:
         project_name/
-           ├── source_code/
-           ├── analysis_id/
+           ├── metadata.json
            └── snippets/
-               ├── security/
-               ├── logic/
-               └── quality/
+               ├── security/snippet_1.json
+               ├── logic/snippet_2.json
+               └── quality/snippet_3.json
 
         Args:
-            local_dir: Local repository path
             project_name: Name of the project
             analysis_id: Unique analysis ID
+            snippets: Dictionary of extracted snippets
+            metadata: Optional metadata dict
 
         Returns:
             Base S3 path for the project
         """
-        # Upload source code to a shared source folder
-        s3_source_prefix = f"{project_name}/source_code/"
-        source_path = f"s3://{self.bucket_name}/{s3_source_prefix}"
+        from datetime import datetime
         
-        self.logger.info(f"Uploading source code to structured path: {source_path}")
+        base_path = f"s3://{self.bucket_name}/{project_name}/"
+        self.logger.info(f"🚀 Uploading ONLY code snippets to: {base_path}")
         
-        # We reuse the logic but point to the new prefix
-        # This iterates and uploads files to project_name/source_code/...
-        self._upload_folder_contents(local_dir, s3_source_prefix)
+        try:
+            # Upload metadata
+            if metadata:
+                metadata['analysis_id'] = analysis_id
+                metadata['uploaded_at'] = datetime.now().isoformat()
+                metadata_key = f"{project_name}/metadata.json"
+                self.upload_json(metadata, metadata_key)
+                self.logger.info(f"✅ Metadata uploaded to {metadata_key}")
+            
+            # Upload categorized snippets
+            if snippets:
+                self.upload_categorized_snippets(snippets, project_name, analysis_id)
+                self.logger.info(f"✅ All snippets uploaded to {project_name}/snippets/")
+            
+            self.logger.info(f"✅ Snippet-only upload complete for {project_name}")
+            return base_path
         
+        except Exception as e:
+            self.logger.error(f"❌ Snippet upload failed: {e}")
+            raise RuntimeError(f"Failed to upload snippets: {e}")
+
+    def upload_project_structure(self, local_dir: str, project_name: str, analysis_id: str) -> str:
+        """
+        DEPRECATED: This method previously uploaded full source code.
+        Now use upload_only_snippets instead.
+        
+        Args:
+            local_dir: Local repository path (not used)
+            project_name: Name of the project
+            analysis_id: Unique analysis ID
+
+        Returns:
+            Base S3 path message
+        """
+        self.logger.warning("⚠️ upload_project_structure is deprecated. Use upload_only_snippets with snippets dict instead.")
         return f"s3://{self.bucket_name}/{project_name}/"
 
-    def _upload_folder_contents(self, local_dir: str, s3_prefix: str):
-        """Helper to upload folder contents to a specific S3 prefix"""
-        if self.use_mock:
-            return
 
-        for root, dirs, files in os.walk(local_dir):
-            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['node_modules', '__pycache__', 'venv', '.git']]
-            
-            for file in files:
-                if file.startswith('.') or file.endswith(('.pyc', '.pyo')):
-                    continue
-                
-                local_path = os.path.join(root, file)
-                relative_path = os.path.relpath(local_path, local_dir)
-                s3_key = f"{s3_prefix}{relative_path.replace(os.sep, '/')}"
-                
-                try:
-                    self.s3_client.upload_file(
-                        local_path, 
-                        self.bucket_name, 
-                        s3_key,
-                        ExtraArgs={'ContentType': self._get_content_type(file)}
-                    )
-                except Exception as e:
-                    self.logger.error(f"Failed to upload {file}: {e}")
 
     def upload_categorized_snippets(self, snippets: Dict[str, Any], project_name: str, analysis_id: str):
         """

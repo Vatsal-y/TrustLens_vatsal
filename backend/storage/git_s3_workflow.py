@@ -105,9 +105,9 @@ class GitS3Workflow:
             workflow_result["status"] = "COMPLETED"
             workflow_result["s3_path"] = upload_result.get("s3_path")
             workflow_result["statistics"] = {
-                "files_uploaded": upload_result.get("file_count", 0),
+                "snippets_uploaded": upload_result.get("snippet_count", 0),
                 "commits": repo_info.get("commit_count", 0),
-                "snippets_extracted": len(snippets) if snippets else 0
+                "snippets_categories": list(snippets.keys()) if snippets else []
             }
             workflow_result["completed_at"] = datetime.now().isoformat()
             
@@ -186,50 +186,38 @@ class GitS3Workflow:
         snippets: Dict[str, Any],
         metadata: Optional[Dict[str, Any]]
     ) -> Dict[str, Any]:
-        """Upload to S3 stage"""
-        self.logger.info("☁️ Stage 3: Uploading to S3...")
+        """Upload to S3 stage - ONLY uploads extracted snippets, not full source code"""
+        self.logger.info("☁️ Stage 3: Uploading code snippets to S3...")
         
         try:
             # Extract project name from repo_url or use default
             project_name = repo_url.rstrip('/').split('/')[-1].replace('.git', '')
             
-            # Upload directory using new structured format
-            s3_path = self.s3_uploader.upload_project_structure(local_repo_path, project_name, analysis_id)
-            
-            # Create and upload metadata
+            # Prepare metadata
             metadata_obj = {
                 "analysis_id": analysis_id,
                 "project_name": project_name,
                 "repo_url": repo_url,
                 "branch": branch,
-                "uploaded_at": datetime.now().isoformat(),
                 "repo_info": repo_info,
                 "snippet_count": sum(len(s) for s in snippets.values()) if isinstance(snippets, dict) else 0,
                 "custom_metadata": metadata or {}
             }
             
-            # Upload metadata.json to project root
-            self.s3_uploader.upload_json(
-                metadata_obj,
-                f"{project_name}/metadata.json"
+            # Upload ONLY snippets and metadata (not full source code)
+            s3_path = self.s3_uploader.upload_only_snippets(
+                project_name=project_name,
+                analysis_id=analysis_id,
+                snippets=snippets,
+                metadata=metadata_obj
             )
-            
-            # Upload categorized snippets if available
-            if snippets:
-                self.s3_uploader.upload_categorized_snippets(
-                    snippets,
-                    project_name,
-                    analysis_id
-                )
-            
-            file_count = self.s3_uploader.count_files_in_directory(local_repo_path)
             
             self.logger.info(f"✅ Upload successful to S3: {s3_path}")
             
             return {
                 "success": True,
                 "s3_path": s3_path,
-                "file_count": file_count,
+                "snippet_count": metadata_obj["snippet_count"],
                 "metadata_uploaded": True
             }
         

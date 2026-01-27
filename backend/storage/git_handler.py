@@ -38,6 +38,34 @@ class GitHandler:
         
         if not GIT_AVAILABLE:
             self.logger.warning("GitPython not installed - some features will be limited")
+        
+        # Check Git installation on init
+        self._check_git_installed()
+    
+    def _check_git_installed(self) -> bool:
+        """
+        Check if Git is installed and accessible.
+        
+        Returns:
+            True if Git is available, False otherwise
+        """
+        try:
+            import subprocess
+            result = subprocess.run(['git', '--version'], capture_output=True, timeout=5)
+            if result.returncode == 0:
+                version = result.stdout.decode().strip()
+                self.logger.info(f"✅ Git is installed: {version}")
+                return True
+            else:
+                self.logger.error("❌ Git command failed - Git may not be in PATH")
+                return False
+        except FileNotFoundError:
+            self.logger.error("❌ Git is NOT installed or not in PATH")
+            self.logger.error("💡 FIX: Install Git - apt-get install -y git (Linux) or download from git-scm.com (Windows)")
+            return False
+        except Exception as e:
+            self.logger.warning(f"⚠️ Could not verify Git installation: {e}")
+            return False
     
     def validate_repo_url(self, repo_url: str) -> bool:
         """
@@ -170,18 +198,43 @@ class GitHandler:
             }
         
         except git.exc.GitCommandError as e:
-            self.logger.error(f"❌ Git command error: {e}")
+            error_msg = str(e)
+            self.logger.error(f"❌ Git command error: {error_msg}")
             self._cleanup_dir(clone_dir)
+            
+            # Provide detailed error diagnosis
+            if "exit code(128)" in error_msg or "not found" in error_msg.lower():
+                diagnosis = "Git is not installed or not in PATH. Run: apt-get install -y git (Linux) or install Git (Windows)"
+                self.logger.error(f"💡 DIAGNOSIS: {diagnosis}")
+                error_msg = f"Git not installed. Install Git then retry. Details: {error_msg}"
+            elif "could not resolve host" in error_msg.lower() or "connection" in error_msg.lower():
+                diagnosis = "Network connectivity issue - cannot reach repository server"
+                self.logger.error(f"💡 DIAGNOSIS: {diagnosis}")
+                error_msg = f"Network error. Check internet connection. Details: {error_msg}"
+            elif "authentication" in error_msg.lower() or "401" in error_msg or "403" in error_msg:
+                diagnosis = "Authentication failed - check credentials or SSH key setup"
+                self.logger.error(f"💡 DIAGNOSIS: {diagnosis}")
+                error_msg = f"Authentication failed. Check credentials. Details: {error_msg}"
+            
             return {
                 "success": False,
-                "error": f"Git operation failed: {str(e)}",
+                "error": error_msg,
                 "repo_url": repo_url,
-                "details": str(e)
+                "details": str(e),
+                "exit_code": 128 if "exit code(128)" in error_msg else None
             }
         
         except Exception as e:
             self.logger.error(f"❌ Clone failed: {e}")
             self._cleanup_dir(clone_dir)
+            
+            # Diagnose common issues
+            error_str = str(e).lower()
+            if "no such file" in error_str or "directory" in error_str:
+                self.logger.error("💡 DIAGNOSIS: Temp directory issue - cannot write to clone directory")
+            elif "permission" in error_str:
+                self.logger.error("💡 DIAGNOSIS: Permission denied - check folder permissions")
+            
             return {
                 "success": False,
                 "error": str(e),
