@@ -193,13 +193,52 @@ class GitS3Workflow:
             # Extract project name from repo_url or use default
             project_name = repo_url.rstrip('/').split('/')[-1].replace('.git', '')
             
-            # Prepare metadata
+            # Calculate aggregate quality metrics from extracted snippets
+            quality_metrics = snippets.get("quality", {}) if isinstance(snippets, dict) else {}
+            
+            # Extract quality metrics
+            total_loc = 0
+            total_functions = 0
+            total_classes = 0
+            max_nesting_depth = 0
+            high_nesting_locations = []
+            average_file_size = 0
+            
+            if quality_metrics:
+                # quality_metrics is {filename: {loc, functions, classes, ...}}
+                for filename, metrics in quality_metrics.items():
+                    if isinstance(metrics, dict):
+                        total_loc += metrics.get("loc", 0)
+                        total_functions += metrics.get("function_count", 0)
+                        total_classes += metrics.get("class_count", 0)
+                        current_depth = metrics.get("max_nesting_depth", 0)
+                        max_nesting_depth = max(max_nesting_depth, current_depth)
+                        
+                        if current_depth > 4:
+                            high_nesting_locations.append({
+                                "file": filename,
+                                "depth": current_depth
+                            })
+                
+                if quality_metrics:
+                    average_file_size = total_loc / len(quality_metrics) if len(quality_metrics) > 0 else 0
+            
+            # Prepare metadata with both git info and quality metrics
             metadata_obj = {
                 "analysis_id": analysis_id,
                 "project_name": project_name,
                 "repo_url": repo_url,
                 "branch": branch,
-                "repo_info": repo_info,
+                "repo_info": {
+                    **repo_info,
+                    # Add calculated quality metrics to repo_info
+                    "total_loc": total_loc,
+                    "function_count": total_functions,
+                    "class_count": total_classes,
+                    "nested_depth": max_nesting_depth,
+                    "high_nesting_locations": high_nesting_locations,
+                    "average_file_size": average_file_size
+                },
                 "snippet_count": sum(len(s) for s in snippets.values()) if isinstance(snippets, dict) else 0,
                 "custom_metadata": metadata or {}
             }
