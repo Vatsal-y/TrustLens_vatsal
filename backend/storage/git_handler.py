@@ -141,6 +141,12 @@ class GitHandler:
         try:
             self.logger.info(f"🔄 Starting clone: {repo_url}")
             self.logger.info(f"📁 Clone destination: {clone_dir}")
+
+            # Inject GitHub token if available
+            auth_repo_url = repo_url
+            github_token = os.environ.get('GITHUB_TOKEN')
+            if github_token and 'github.com' in repo_url and repo_url.startswith('https://'):
+                auth_repo_url = repo_url.replace('https://', f'https://{github_token}@')
             
             # Prepare clone options
             clone_kwargs = {
@@ -153,7 +159,7 @@ class GitHandler:
                 clone_kwargs['depth'] = depth
             
             # Clone repository
-            repo = Repo.clone_from(repo_url, **clone_kwargs)
+            repo = Repo.clone_from(auth_repo_url, **clone_kwargs)
             
             # Verify clone
             if not os.path.exists(clone_dir):
