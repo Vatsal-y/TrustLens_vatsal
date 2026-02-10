@@ -1,7 +1,7 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
-import { ShieldCheck, Info, AlertTriangle, Settings } from 'lucide-react';
+import { ShieldCheck, Info, Zap, Clock, Settings, GitMerge } from 'lucide-react';
 import clsx from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -44,13 +44,20 @@ const Layout = () => {
                         transition={{ duration: 0.5, ease: "easeOut" }}
                         className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
                     >
-                       <div className="flex justify-center">
-                             <nav className="flex items-center gap-1 p-2 bg-slate-900/80 backdrop-blur-xl border border-white/10 rounded-full shadow-2xl ring-1 ring-white/5">
+                        <div className="flex justify-center">
+                            <nav className="flex items-center gap-1 p-2 bg-slate-900/80 backdrop-blur-xl border border-white/10 rounded-full shadow-2xl ring-1 ring-white/5">
                                 <NavItem to="/" icon={ShieldCheck} label="Home" active={location.pathname === '/'} />
 
                                 <div className="w-px h-4 bg-white/10 mx-1" />
 
+                                <NavItem to="/analyze" icon={Zap} label="Analyze" active={location.pathname === '/analyze'} />
                                 <NavItem to="/agents" icon={Info} label="Agents" active={location.pathname === '/agents'} />
+                                <NavItem to="/conflicts" icon={GitMerge} label="Conflicts" active={location.pathname === '/conflicts'} />
+
+                                <div className="w-px h-4 bg-white/10 mx-1" />
+
+                                <NavItem to="/history" icon={Clock} label="History" active={location.pathname === '/history'} />
+                                <NavItem to="/settings" icon={Settings} label="Settings" active={location.pathname === '/settings'} />
                             </nav>
                         </div>
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ShieldCheck, ShieldAlert, FileSearch, Lock, ArrowRight } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, FileSearch, Lock, ArrowRight, AlertTriangle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const DECISION_CONFIG = {
@@ -12,13 +12,21 @@ const DECISION_CONFIG = {
         title: "SAFE TO PROCEED",
         description: "All agents have reached a high-confidence consensus. No critical risks or logic errors were detected."
     },
+    CAUTION: {
+        color: "text-quality",
+        bg: "bg-quality/10",
+        border: "border-quality/30",
+        icon: AlertTriangle,
+        title: "PROCEED WITH CAUTION",
+        description: "Minor issues detected but no critical risks. Review the findings before deploying."
+    },
     MANUAL_REVIEW: {
         color: "text-uncertainty",
         bg: "bg-uncertainty/10",
         border: "border-uncertainty/30",
         icon: Lock,
         title: "MANUAL REVIEW REQUIRED",
-        description: "The system intentionally refused to make an automated decision due to conflicting agent reports."
+        description: "The system intentionally refused to make an automated decision due to conflicting agent reports or low confidence."
     },
     RISK: {
         color: "text-security",
@@ -33,7 +41,6 @@ const DECISION_CONFIG = {
 const FinalDecisionPanel = ({ decision }) => {
     if (!decision) return null;
 
-    // Direct mapping, no default fallback to MANUAL_REVIEW unless explicitly detected
     const config = DECISION_CONFIG[decision] || DECISION_CONFIG.SAFE;
     const Icon = config.icon;
 
@@ -45,7 +52,7 @@ const FinalDecisionPanel = ({ decision }) => {
             className={`w-full max-w-4xl mx-auto my-8 p-8 rounded-card border ${config.border} ${config.bg} relative overflow-hidden text-center`}
         >
             {/* Background decoration */}
-            <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 blur-[80px] rounded-full opacity-20 pointer-events-none ${decision === 'SAFE' ? 'bg-logic' : decision === 'RISK' ? 'bg-security' : 'bg-uncertainty'}`} />
+            <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 blur-[80px] rounded-full opacity-20 pointer-events-none ${decision === 'SAFE' ? 'bg-logic' : decision === 'RISK' ? 'bg-security' : decision === 'CAUTION' ? 'bg-quality' : 'bg-uncertainty'}`} />
 
             <div className="relative z-10 flex flex-col items-center">
                 <motion.div
@@ -68,7 +75,7 @@ const FinalDecisionPanel = ({ decision }) => {
                 <div className="mt-8 flex flex-wrap justify-center gap-4">
                     <Link
                         to="/report"
-                        className="flex items-center gap-2 px-8 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all shadow-lg shadow-blue-500/20"
+                        className="flex items-center gap-2 px-8 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all shadow-lg shadow-blue-500/20 cursor-pointer"
                     >
                         View Full Audit Report <ArrowRight className="w-4 h-4" />
                     </Link>

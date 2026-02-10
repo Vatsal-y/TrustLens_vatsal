@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, Brain, Zap, Search, ChevronRight, ChevronDown } from 'lucide-react';
+import { Shield, Brain, Zap, Search, ChevronRight, ChevronDown, GitMerge } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
@@ -37,9 +37,15 @@ const RISK_CONFIG = {
 
 const ICONS = {
     "Security Agent": Shield,
+    "Security Analysis": Shield,
     "Logic Agent": Brain,
+    "Logic Analysis": Brain,
     "Quality Agent": Search,
+    "Code Quality": Search,
     "Feature Agent": Zap,
+    "Feature Extraction": Zap,
+    "Decision Agent": GitMerge,
+    "Decision": GitMerge,
 };
 
 const AgentCard = ({ agent, index }) => {

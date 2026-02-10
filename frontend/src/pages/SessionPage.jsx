@@ -20,8 +20,19 @@ const SessionPage = () => {
         completedMeasurements,
         results,
         overall,
-        analysisId
+        analysisId,
+        report
     } = useAnalysis();
+
+    // Map backend decision values to FinalDecisionPanel keys
+    const getDecisionKey = () => {
+        if (!report?.final_decision) return null;
+        const d = report.final_decision.toLowerCase();
+        if (d.includes('manual_review') || d.includes('review_required')) return 'MANUAL_REVIEW';
+        if (d.includes('acceptable') || d === 'proceed_with_caution') return 'SAFE';
+        if (d.includes('reject') || report.overall_risk_level === 'high') return 'RISK';
+        return 'SAFE';
+    };
 
     // Redirect logic
     useEffect(() => {
@@ -111,8 +122,8 @@ const SessionPage = () => {
                             transition={{ delay: 0.5 }}
                             className="space-y-6 pt-8 border-t border-white/5"
                         >
-                            
-                            <FinalDecisionPanel decision="MANUAL_REVIEW" />
+
+                            <FinalDecisionPanel decision={getDecisionKey()} />
                         </motion.div>
                     )}
                 </div>
