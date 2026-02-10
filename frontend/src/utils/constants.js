@@ -20,4 +20,4 @@ export const ANALYSIS_STEPS = [
     { id: 7, label: "Decision synthesis" },
 ];
 
-export const MOCK_ANALYSIS_TIME_MS = 1000; // Time per step — adjusted for 7 steps
+export const MOCK_ANALYSIS_TIME_MS = 50; // Analysis Speed: Instant
