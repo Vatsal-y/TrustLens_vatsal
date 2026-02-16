@@ -8,7 +8,7 @@ const Header = () => {
             <div className="max-w-5xl mx-auto flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                        <ShieldCheck className="w-6 h-6 text-blue-400" />
+                        <img src="/logo.png" alt="TrustLens Logo" className="w-8 h-8 object-contain" />
                     </div>
                     <div>
                         <h1 className="text-xl font-semibold tracking-tight text-white/90">
